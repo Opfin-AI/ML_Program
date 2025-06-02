@@ -1,0 +1,14 @@
+pandas
+scikit-learn
+xgboost
+mwclient
+yfinance
+matplotlib
+transformers
+ipywidgets
+torch torchvision torchaudio
+hf_xet
+pytrends
+requests pandas textblob
+python -m textblob.download_corpora
+optuna
