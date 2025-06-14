@@ -1,7 +1,7 @@
 # Project Overview
 
 Must be installed on your machine prior:
-* Python
+* Python 3.11.X
 * Jupyter Lab
 
 **Project Steps**
@@ -18,7 +18,7 @@ Must be installed on your machine prior:
 To follow this project, please install the following locally:
 
 * JupyerLab
-* Python 3.8+
+* Python 3.11.X
 * Python packages (pip install)
     * pandas
     * yfinance
@@ -33,4 +33,5 @@ To follow this project, please install the following locally:
     * requests pandas textblob
     * python -m textblob.download_corpora
     * optuna
+    * tensorflow
 

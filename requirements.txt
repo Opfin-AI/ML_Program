@@ -1,3 +1,5 @@
+Python 3.11.X
+jupyter lab
 pandas
 scikit-learn
 xgboost
@@ -12,3 +14,4 @@ pytrends
 requests pandas textblob
 python -m textblob.download_corpora
 optuna
+tensorflow
