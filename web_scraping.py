@@ -7,6 +7,7 @@ from openai import OpenAI
 from openai.types import ResponseFormatJSONObject
 from openai.types.chat.completion_create_params import ResponseFormat
 
+
 def api_configuration():
     """Configure API keys and URLs."""
     global FINNHUB_API_KEY, FINNHUB_URL, NEWS_API_KEY, NEWS_API_URL, OPENAI_KEY
@@ -23,7 +24,7 @@ def api_configuration():
     OPENAI_KEY = 'your_openai_api_key_here'  # Get from https://platform.openai.com/signup
 
 
-def fetch_finnhub_news_for_day(date, symbol) -> list:
+def fetch_finnhub_news_for_day(date, symbol: str) -> list:
     """Fetch financial news from Finnhub"""
     params = {
         'symbol': ticker,
@@ -48,7 +49,7 @@ def fetch_finnhub_news_for_day(date, symbol) -> list:
         return []
     
     
-def fetch_newsapi_news_for_day(date, query) -> list: 
+def fetch_newsapi_news_for_day(date, query: str) -> list: 
     """Fetch general news using NewsAPI"""
     params = {
         'q': query,
@@ -84,12 +85,9 @@ def finnhub_articles_into_headlines(zone, date, finnhub_articles: list) -> list:
     else:
         for article in finnhub_articles:
             ts = datetime.fromtimestamp(article['datetime'], tz=zone)
-            '''print(f"🗞️ {ts}: {article['headline']}")
-            print(f"   → {article['summary']}")
-            print(f"   → Source: {article['source']} | URL: {article['url']}")
-            print('-' * 80)'''
             finnhub_headlines.append(article['headline'])
     return finnhub_headlines
+  
         
 def newsapi_articles_into_headlines(date, newsapi_articles: list) -> list:
     """Convert NewsAPI articles into headlines"""
@@ -102,9 +100,11 @@ def newsapi_articles_into_headlines(date, newsapi_articles: list) -> list:
             if article.get('title'):
                 newsapi_headlines.append(article['title'])
     return newsapi_headlines
+   
     
 # OPEN AI SENTIMENT ANALYSIS METHOD
-def analyze_sentiment_scores(day_list, target):
+def analyze_sentiment_scores(day_list: list, target: str) -> dict:
+    """Analyze sentiment scores using OpenAI API"""
     client = OpenAI(api_key=OPENAI_KEY)
 
     prompt = (
@@ -132,34 +132,9 @@ def analyze_sentiment_scores(day_list, target):
 
     # Parse each JSON object from the response text
     raw_output = response.choices[0].message.content
-    '''
-    # Extract just the scores from the JSON lines
-    # Optional: clean up markdown formatting if it appears
-    cleaned = raw_output.strip().removeprefix("
-json").removesuffix("
-")
-
-    try:
-        parsed = json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        print("Failed to parse JSON:", e)
-        print("Raw response:\n", raw_output)
-        parsed = []
-    #MANUALLY CALCULATING OVERALL_DAY_SCORE FOR SENTIMENT BCUZ LLM IS BRAINDEAD AND CANNOT RELIABLY COUNT
-    for day, info in parsed.items():
-        headlines = info['headlines']
-        if not headlines:
-            overall = None
-        else:
-            ones = sum(h['sentiment_score'] for h in headlines)
-            zeros = len(headlines) - ones
-            overall = 1 if ones > zeros else 0
-        parsed[day]['overall_day_score'] = overall
-    # Extract just the overall sentiment scores that I manually computed and assigned to each day in the returned json
-    overall_day_scores = [parsed[d]["overall_day_score"] for d in sorted(parsed, key=lambda x: int(x))]'''
     sentiment_scores = json.loads(raw_output)
-    # sent_reasons = [item['reasoning'] for item in parsed if 'reasoning' in item]
     return sentiment_scores
+    
     
 def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
     """Get sentiment score for a specific ticker over the last 10 days"""
@@ -170,9 +145,6 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
 
     end_date = datetime.now(tz=ET).date()
     start_date = end_date - timedelta(days=10)
-
-    all_headlines = []
-    days_to_headlines = {}
     
     current = start_date
     day = 0
@@ -195,27 +167,7 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
     
         # Fetch general news from NewsAPI
         print("Fetching general news from NewsAPI...")
-        gennews_articles = fetch_newsapi_news_for_day(current, target)
-                
-        # params = {
-        #     'symbol': ticker,
-        #     'from': current.strftime('%Y-%m-%d'),
-        #     'to': current.strftime('%Y-%m-%d'),
-        #     'token': FINNHUB_API_KEY
-        # }
-
-        # response = requests.get(FINNHUB_URL, params=params)
-        # try:
-        #     data = response.json()
-        # except Exception as e:
-        #     print(f"Failed to parse response: {e}")
-        #     current += timedelta(days=1)
-        #     continue
-
-        # if not isinstance(data, list):
-        #     print(f"Unexpected response: {data}")
-        #     current += timedelta(days=1)
-        #     continue
+        newsapi_articles = fetch_newsapi_news_for_day(current, target)
 
         # Transform Finnhub articles into headlines and append to day_list
         finnhub_headlines = finnhub_articles_into_headlines(ET, current, finnhub_articles)
@@ -223,47 +175,39 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
         day_list.append(finnhub_headlines)
         
         # Transform general news articles into headlines and append to day_list
-        newsapi_headlines = newsapi_articles_into_headlines(current, gennews_articles)
+        newsapi_headlines = newsapi_articles_into_headlines(current, newsapi_articles)
         # print(f"General News headlines for {current}: {gennews_headlines}")
         day_list.append(newsapi_headlines)
-        
-        # if not data:
-        #     print(f"No articles found for {current}")
-        # else:
-        #     for article in data:
-        #         ts = datetime.fromtimestamp(article['datetime'], tz=ET)
-        #         '''print(f"🗞️ {ts}: {article['headline']}")
-        #         print(f"   → {article['summary']}")
-        #         print(f"   → Source: {article['source']} | URL: {article['url']}")
-        #         print('-' * 80)'''
-        #         day_list.append(article['headline'])
-        #         # print(f"day_list: {day_list}")
-        #         all_headlines.append(article['headline'])
-        #         # print(f"all_headlines: {all_headlines}")
-                
-        # days_to_headlines[day] = day_list
         
         # Analyze sentiment scores for the collected headlines
         day_scores = analyze_sentiment_scores(day_list, target)
         #print(day_list)
         print(f"SENTIMENT SCORES FOR THE DAY: {day_scores['sentiment_scores']}")
-        # If the sum of the sentiment scores is greater than half the number of scores, consider it a positive day
-        overall_day_score = 1 if sum(day_scores['sentiment_scores']) > len(day_scores['sentiment_scores']) / 2 else 0
+        
+        # If the sum of the sentiment scores is greater than OR EQUAL TO half the number of scores, consider it a positive day
+        """ TO-DO: Change this logic to 1/3 majority logic OR make a different threshold (e.g., 0.6) for positive sentiment
+        OR we can get rid of equal to symbol and just use greater than """
+        overall_day_score = 1 if sum(day_scores['sentiment_scores']) >= len(day_scores['sentiment_scores']) / 2 else 0
+        
         scorelist.append(overall_day_score)
         print(f"OVERALL DAY SCORE: {overall_day_score}")
+        
         # if len(day_scores['sentiment_scores']) == len(day_list):
         #     print("equal length")
         # elif len(day_scores['sentiment_scores']) > len(day_list):
         #     print("more scores then headlines")
         # elif len(day_scores['sentiment_scores']) < len(day_list):
         #     print("less scores then headlines")
+        
         current += timedelta(days=1)
         print(f"SCORE LIST: {scorelist}")
         time.sleep(2)  # Increased delay since we're hitting two APIs
 
+    # Return the scorelist containing sentiment scores for each day
     return scorelist
 
-def get_final_sentiment(target, ticker: str) -> int:
+
+def get_final_sentiment(target: str, ticker: str) -> int:
     """Calculate final sentiment based on the scorelist"""
     scorelist = get_sentiment_scores(target, ticker)
     
@@ -281,7 +225,8 @@ def get_final_sentiment(target, ticker: str) -> int:
     print(f"Positive Days: {positive_days} out of {len(scorelist)}")
     print(f"Threshold (1/3 of days): {threshold}")
     print(f"Final Sentiment Outlook for {target}: {'Positive' if final_sentiment == 1 else 'Negative/Neutral'}")
-    #returns final sentiment
+    
+    # returns final sentiment
     return final_sentiment
 
 
