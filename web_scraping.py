@@ -21,7 +21,7 @@ def api_configuration():
     NEWS_API_URL = 'https://newsapi.org/v2/everything'
 
     # OpenAI API
-    OPENAI_KEY = 'your_openai_api_key_here'  # Get from https://platform.openai.com/signup
+    OPENAI_KEY = 'your_openai_key_here'  # Get from https://platform.openai.com/signup
 
 
 def fetch_finnhub_news_for_day(date, symbol: str) -> list:
@@ -171,26 +171,52 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
 
         # Transform Finnhub articles into headlines and append to day_list
         finnhub_headlines = finnhub_articles_into_headlines(ET, current, finnhub_articles)
-        # print(f"Finnhub headlines for {current}: {finnhub_headlines}")
-        day_list.append(finnhub_headlines)
+        
+        # Finnhub articles to headlines check
+        # if len(finnhub_articles) != len(finnhub_headlines):
+        #     print(f"[FINNHUB] Length mismatch: {len(finnhub_articles)} articles vs {len(finnhub_headlines)} headlines")
+        # else:
+        #     print(f"[FINNHUB] Length match: {len(finnhub_articles)} articles and headlines")
+            
+        for headline in finnhub_headlines:
+            if headline:  # Check if the headline is not empty
+                day_list.append(headline)
+        print(f"Total headlines for {current} after adding Finnhub headlines: {len(day_list)}")
+        
         
         # Transform general news articles into headlines and append to day_list
         newsapi_headlines = newsapi_articles_into_headlines(current, newsapi_articles)
-        # print(f"General News headlines for {current}: {gennews_headlines}")
-        day_list.append(newsapi_headlines)
         
+        # # NewsAPI articles to headlines check
+        # if len(newsapi_articles) != len(newsapi_headlines):
+        #     print(f"[NEWSAPI] Length mismatch: {len(newsapi_articles)} articles vs {len(newsapi_headlines)} headlines")
+        # else:
+        #     print(f"[NEWSAPI] Length match: {len(newsapi_articles)} articles and headlines")
+            
+        for headline in newsapi_headlines:
+            if headline:  # Check if the headline is not empty
+                day_list.append(headline)
+        print(f"Total headlines for {current}: {len(day_list)}")
+        
+                
         # Analyze sentiment scores for the collected headlines
         day_scores = analyze_sentiment_scores(day_list, target)
-        #print(day_list)
         print(f"SENTIMENT SCORES FOR THE DAY: {day_scores['sentiment_scores']}")
         
-        # If the sum of the sentiment scores is greater than OR EQUAL TO half the number of scores, consider it a positive day
-        """ TO-DO: Change this logic to 1/3 majority logic OR make a different threshold (e.g., 0.6) for positive sentiment
-        OR we can get rid of equal to symbol and just use greater than """
-        overall_day_score = 1 if sum(day_scores['sentiment_scores']) >= len(day_scores['sentiment_scores']) / 2 else 0
         
-        scorelist.append(overall_day_score)
+        # 1/3 Majority Logic - for each sentiment in day_scores['sentiment_scores']
+        # if the sum of positive scores is greater than or equal to 1/3 of the total scores, consider it a positive day
+        positive_scores = sum(day_scores['sentiment_scores'])
+        print(f"Total positive sentiment scores for {current}: {positive_scores}")
+        threshold = len(day_scores['sentiment_scores']) / 3
+        
+        if positive_scores >= threshold:
+            overall_day_score = 1
+        else:
+            overall_day_score = 0
+        
         print(f"OVERALL DAY SCORE: {overall_day_score}")
+        scorelist.append(overall_day_score)
         
         # if len(day_scores['sentiment_scores']) == len(day_list):
         #     print("equal length")
@@ -232,6 +258,6 @@ def get_final_sentiment(target: str, ticker: str) -> int:
 
 # main code to test the logic
 ticker = "GLD"
-target = ("Gold")
+target = "Gold"
 sentiment = get_final_sentiment(target, ticker)
 print(f"Final Sentiment for {ticker}: {'Positive' if sentiment == 1 else 'Negative/Neutral'}")
