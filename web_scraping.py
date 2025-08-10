@@ -21,7 +21,7 @@ def api_configuration():
     NEWS_API_URL = 'https://newsapi.org/v2/everything'
 
     # OpenAI API
-    OPENAI_KEY = 'your_openai_key_here'  # Get from https://platform.openai.com/signup
+    OPENAI_KEY = 'your_openai_api_key_here'  # Get from https://platform.openai.com/signup
 
 
 def fetch_finnhub_news_for_day(date, symbol: str) -> list:
@@ -103,17 +103,17 @@ def newsapi_articles_into_headlines(date, newsapi_articles: list) -> list:
    
     
 # OPEN AI SENTIMENT ANALYSIS METHOD
-def analyze_sentiment_scores(day_list: list, target: str) -> dict:
+def analyze_sentiment_scores(day_list: list, target) -> dict:
     """Analyze sentiment scores using OpenAI API"""
     client = OpenAI(api_key=OPENAI_KEY)
 
     prompt = (
-        f"You are a financial news sentiment evaluator.\n\n"
-        f"You will receive a Python list of N news headlines.\n"
+        "You are a financial news sentiment evaluator.\n\n"
+        "You will receive a Python list of N news headlines.\n"
         f"For each headline, assign a sentiment score: 1 if it's positive for {target}, 0 otherwise.\n\n"
         f"Return a JSON object with one field: 'sentiment_scores', whose value is a list of exactly {len(day_list)} integers (0 or 1), "
-        f"in the same order as the headlines.\n"
-        f"Do not skip any headlines. Do not explain. Only output the JSON object.\n\n"
+        "in the same order as the headlines.\n"
+        "Do not skip any headlines. Do not explain. Only output the JSON object.\n\n"
         f"headlines = {json.dumps(day_list)}"
 
     )
@@ -136,7 +136,7 @@ def analyze_sentiment_scores(day_list: list, target: str) -> dict:
     return sentiment_scores
     
     
-def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
+def get_sentiment_scores(target, ticker: str) -> int:
     """Get sentiment score for a specific ticker over the last 10 days"""
     
     api_configuration() # Configure API keys and URLs
@@ -151,7 +151,10 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
     
     # creates a list to append the overall day scores to scorelist
     scorelist = []
-
+    
+    # calculates proportion of positive sentiment scores for each day
+    prop_pos_dict = {}
+    
     # EXTRACTING ARTICLES BY DAY FROM FINNHUB AND NEWS API
     while current <= end_date:
         day = day + 1
@@ -181,7 +184,7 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
         for headline in finnhub_headlines:
             if headline:  # Check if the headline is not empty
                 day_list.append(headline)
-        print(f"Total headlines for {current} after adding Finnhub headlines: {len(day_list)}")
+        # print(f"Total headlines for {current} after adding Finnhub headlines: {len(day_list)}")
         
         
         # Transform general news articles into headlines and append to day_list
@@ -196,12 +199,21 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
         for headline in newsapi_headlines:
             if headline:  # Check if the headline is not empty
                 day_list.append(headline)
-        print(f"Total headlines for {current}: {len(day_list)}")
+        print(f"Total headlines for {current}: {len(day_list)}\n")
         
+        # if no headlines found for the day, continue with logic
+        if(len(day_list) == 0):
+            print(f"ALERT: No headlines found for {current}\n")
+            overall_day_score = 0
+            scorelist.append(overall_day_score)
+            prop_pos_dict[day] = 0
+            current += timedelta(days=1)
+            time.sleep(2)  # Increased delay since we're hitting two APIs
+            continue        
                 
         # Analyze sentiment scores for the collected headlines
         day_scores = analyze_sentiment_scores(day_list, target)
-        print(f"SENTIMENT SCORES FOR THE DAY: {day_scores['sentiment_scores']}")
+        print(f"Sentiment scores for day: {day_scores['sentiment_scores']}\n")
         
         
         # 1/3 Majority Logic - for each sentiment in day_scores['sentiment_scores']
@@ -209,6 +221,7 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
         positive_scores = sum(day_scores['sentiment_scores'])
         print(f"Total positive sentiment scores for {current}: {positive_scores}")
         threshold = len(day_scores['sentiment_scores']) / 3
+        prop_pos_dict[day] = positive_scores / len(day_scores['sentiment_scores'])
         
         if positive_scores >= threshold:
             overall_day_score = 1
@@ -226,14 +239,21 @@ def get_sentiment_scores(target: str, ticker: str, days_back: int = 10) -> int:
         #     print("less scores then headlines")
         
         current += timedelta(days=1)
-        print(f"SCORE LIST: {scorelist}")
+        print(f"SCORE LIST: {scorelist}\n")
         time.sleep(2)  # Increased delay since we're hitting two APIs
 
+    # alters scorelist to have minimum one postive day score for xgboost to work properly
+    if sum(scorelist) == 0:
+        print("ALERT: ALTERING SCORELIST - minimum one positive overall_day_score for xgboost to work\n")
+        highest_prop_pos_day = max(prop_pos_dict, key=prop_pos_dict.get)
+        scorelist[highest_prop_pos_day - 1] = 1
+        print(f"ALTERED SCORELIST: {scorelist}\n")
+            
     # Return the scorelist containing sentiment scores for each day
     return scorelist
 
 
-def get_final_sentiment(target: str, ticker: str) -> int:
+def get_final_sentiment(target, ticker: str) -> int:
     """Calculate final sentiment based on the scorelist"""
     scorelist = get_sentiment_scores(target, ticker)
     
@@ -257,7 +277,7 @@ def get_final_sentiment(target: str, ticker: str) -> int:
 
 
 # main code to test the logic
-ticker = "GLD"
-target = "Gold"
+ticker = "NFLX"
+target = ("Netflix", ticker)
 sentiment = get_final_sentiment(target, ticker)
 print(f"Final Sentiment for {ticker}: {'Positive' if sentiment == 1 else 'Negative/Neutral'}")
