@@ -1,0 +1,4 @@
+venv/
+scratch/
+.ipynb_checkpoints/
+__pycache__/
