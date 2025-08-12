@@ -15,16 +15,14 @@ def api_configuration():
     # Finnhub API (Financial News)
     FINNHUB_API_KEY = 'your_finnhub_api_key_here'  # Get from https://finnhub.io/dashboard
     FINNHUB_URL = 'https://finnhub.io/api/v1/company-news'
-
     # NewsAPI (General News)
-    NEWS_API_KEY = 'your_newsapi_key_here'  # Get from https://newsapi.org/register
+    NEWS_API_KEY = 'your_news_api_key_here'  # Get from https://newsapi.org/register
     NEWS_API_URL = 'https://newsapi.org/v2/everything'
-
     # OpenAI API
-    OPENAI_KEY = 'your_openai_api_key_here'  # Get from https://platform.openai.com/signup
+    OPENAI_KEY = 'your_openai_key_here'  # Get from https://platform.openai.com/signup
 
 
-def fetch_finnhub_news_for_day(date, symbol: str) -> list:
+def fetch_finnhub_news_for_day(date, ticker: str) -> list:
     """Fetch financial news from Finnhub"""
     params = {
         'symbol': ticker,
@@ -49,8 +47,9 @@ def fetch_finnhub_news_for_day(date, symbol: str) -> list:
         return []
     
     
-def fetch_newsapi_news_for_day(date, query: str) -> list: 
+def fetch_newsapi_news_for_day(date, company_name, ticker) -> list: 
     """Fetch general news using NewsAPI"""
+    query = f'"{company_name}" OR "{ticker}"'
     params = {
         'q': query,
         'from': date.strftime('%Y-%m-%d'),
@@ -81,7 +80,7 @@ def finnhub_articles_into_headlines(zone, date, finnhub_articles: list) -> list:
     finnhub_headlines = []
 
     if not finnhub_articles:
-            print(f"No articles found for {date} from Finnhub")
+        print(f"No articles found for {date} from Finnhub API")
     else:
         for article in finnhub_articles:
             ts = datetime.fromtimestamp(article['datetime'], tz=zone)
@@ -155,8 +154,8 @@ def get_sentiment_scores(target, ticker: str) -> int:
     # calculates proportion of positive sentiment scores for each day
     prop_pos_dict = {}
     
-    # EXTRACTING ARTICLES BY DAY FROM FINNHUB AND NEWS API
-    while current <= end_date:
+    # EXTRACTING ARTICLES BY DAY FOR 10 DAYS FROM FINNHUB AND NEWS API
+    while current < end_date:
         day = day + 1
         day_list = []
         print("---------------------------------------------------------------------------")
@@ -170,7 +169,7 @@ def get_sentiment_scores(target, ticker: str) -> int:
     
         # Fetch general news from NewsAPI
         print("Fetching general news from NewsAPI...")
-        newsapi_articles = fetch_newsapi_news_for_day(current, target)
+        newsapi_articles = fetch_newsapi_news_for_day(current, target[0], target[1])
 
         # Transform Finnhub articles into headlines and append to day_list
         finnhub_headlines = finnhub_articles_into_headlines(ET, current, finnhub_articles)
@@ -203,7 +202,7 @@ def get_sentiment_scores(target, ticker: str) -> int:
         
         # if no headlines found for the day, continue with logic
         if(len(day_list) == 0):
-            print(f"ALERT: No headlines found for {current}\n")
+            print(f"ALERT: No headlines found for {current}, overall day score = 0\n")
             overall_day_score = 0
             scorelist.append(overall_day_score)
             prop_pos_dict[day] = 0
