@@ -223,7 +223,7 @@ def get_sentiment_scores(target, ticker: str, days_back: int) -> int:
     return scorelist
 
 
-def print_results(target, ticker: str, days_back: int):
+def get_company_scorelist(target, ticker: str, days_back: int) -> list[int]:
     """Prints out information about scorelist"""
     scorelist = get_sentiment_scores(target, ticker, days_back)
     positive_days = sum(scorelist)
@@ -231,9 +231,11 @@ def print_results(target, ticker: str, days_back: int):
     print(f"\nSummary of Sentiments over {days_back} Days:")
     print(f"Positive Days: {positive_days} out of {len(scorelist)}")
     print(f"Final Score List for {target}: {scorelist}")
+    
+    return scorelist
 
 
 # main code to test the logic
 ticker = "NFLX"
 target = ("Netflix", ticker)
-print_results(target, ticker, 30)
+get_company_scorelist(target, ticker, 30)
